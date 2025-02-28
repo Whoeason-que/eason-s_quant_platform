@@ -1,0 +1,138 @@
+import pandas as pd
+import yaml
+from datetime import datetime
+import tushare as ts
+import os
+from pathlib import Path
+from typing import Union
+import akshare as ak
+def get_stock_info(output_path: Union[str, Path]=Path(r'C:\Users\huyix\Desktop\quant\stock_company_info.csv')) -> None:
+    try:
+        pro = ts.pro_api()
+        df = pro.stock_basic(exchange='', list_status='L', 
+                            fields='ts_code,symbol,name,list_date')
+        df.to_csv(output_path, index=False)
+        print(f"股票基本信息已保存至 {output_path}")
+    except Exception as e:
+        print(f"获取股票信息失败: {str(e)}")
+        raise
+
+def convert_code(code):
+    code = code.strip()
+    exchange_map = {
+        '.SH': 'sh',  # 上海证券交易所
+        '.SZ': 'sz',  # 深圳证券交易所
+        '.HK': 'hk',  # 香港交易所
+        '.BJ': 'bj',  # 北京证券交易所
+        '.US': 'us',  # 美国证券交易所
+    }
+    
+    # 检查是否包含交易所后缀
+    for suffix, prefix in exchange_map.items():
+        if code.endswith(suffix):
+            stock_code = code.replace(suffix, '')
+            return f"{prefix}{stock_code}"
+    
+    # 如果没有找到匹配的后缀，抛出异常
+    raise ValueError(f"未知的股票代码格式：{code}")
+
+
+def generate_yaml_config(csv_path, yaml_path):
+    data = pd.read_csv(csv_path)
+    data['list_date'] = data['list_date'].astype(str).replace('nan', '')
+    
+    # 使用向量化操作生成配置
+    yaml_config = {
+        row['name']: {
+            "function": f"ak.stock_zh_a_daily(symbol='{convert_code(row['ts_code'])}',start_date='{int(row['list_date']):08d}',end_date='{datetime.today().strftime('%Y%m%d')}',adjust='hfq')"
+        }
+        for _, row in data.iterrows()
+        if row['list_date'] and len(row['list_date']) == 8 and row['list_date'].isdigit()
+    }
+    
+    with open(yaml_path, 'w', encoding='utf-8') as file:
+        yaml.dump(yaml_config, file, allow_unicode=True, sort_keys=False)
+        # 追加备注信息
+        today = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        file.write(f"\n#作者：eason, 最后修改日期：{today}, 由 stock_config_generater.py 自动生成, 请勿手动修改, 谢谢！\n")
+    print(f"YAML 配置文件已生成并保存到 {yaml_path}")
+    
+
+
+# 读取YAML配置文件
+def load_config(yaml_path):
+    with open(yaml_path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+# 执行股票数据获取
+def fetch_stock_data(config, target_companies=None):
+    """
+    获取股票数据。
+
+    :param config: 包含公司及其参数的字典
+    :param target_companies: 可选参数，指定要获取数据的特定公司列表
+    :return: 包含各公司数据的字典
+    """
+    results = {}
+    
+    # 如果没有指定特定公司，则默认处理所有公司
+    if target_companies is None:
+        target_companies = list(config.keys())
+    
+    for company in target_companies:
+        if company not in config:
+            print(f"警告：{company} 不在配置中，跳过处理。")
+            continue
+        
+        params = config[company]
+        try:
+            # 动态执行函数调用
+            func_str = params['function']
+            # 使用eval执行函数字符串（注意：确保YAML来源可信）
+            data = eval(func_str)
+            results[company] = data
+            print(f"{company} 数据获取成功，共获取 {len(data)} 条记录")
+        except Exception as e:
+            print(f"{company} 数据获取失败：{str(e)}")
+    
+    return results
+
+
+# 保存数据到CSV
+def save_to_csv(results, output_dir="output"):
+    os.makedirs(output_dir, exist_ok=True)
+    for company, data in results.items():
+        file_path = os.path.join(output_dir, f"{company}.csv")
+        data.to_csv(file_path)
+        print(f"{company} 数据已保存至 {file_path}")
+
+def stock_config_generater(
+    csv_path: Union[str, Path] = Path(r'C:\Users\huyix\Desktop\quant\stock_company_info.csv'),
+    yaml_path: Union[str, Path] = Path(r'C:\Users\huyix\Desktop\quant\stock_config.yaml'),
+    fetch_data: bool = True) -> None:
+    if fetch_data:
+        get_stock_info(csv_path)
+    generate_yaml_config(csv_path, yaml_path)
+    print("股票配置生成完成！")
+
+#这是最后调用的api
+def fetch_stock(target_companies : list =['中国联通','中国移动','中国电信'],
+                csv_path: Union[str, Path] = Path(r'C:\Users\huyix\Desktop\quant\stock_company_info.csv'),
+                yaml_path: Union[str, Path] = Path(r'C:\Users\huyix\Desktop\quant\stock_config.yaml'),
+                save_path: Union[str, Path] = Path(r'C:\Users\huyix\Desktop\quant\stock_data'),
+                fetch_data: bool = True,
+                regeneate_config: bool = True) -> None:
+    if fetch_data:
+        get_stock_info(csv_path)
+    if regeneate_config:
+        generate_yaml_config(csv_path, yaml_path)
+    # 加载配置
+    config = load_config(yaml_path)
+    # 获取数据
+    stock_data = fetch_stock_data(config, target_companies)
+    # 保存结果
+    if stock_data:
+        save_to_csv(stock_data, save_path)
+    else:
+        print("没有获取到有效数据")
+fetch_stock(target_companies=['平安银行', '招商银行', '万科A', '中国平安', '中国人寿', '中国石油', '中国联通', '中国移动', '中国电信'],fetch_data=False,regeneate_config=False)
