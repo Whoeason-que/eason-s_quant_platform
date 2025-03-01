@@ -19,7 +19,7 @@ logging.basicConfig(
 )
 
 # 基础路径配置（跨平台兼容）
-DEFAULT_QUANT_DIR = Path.home() / "quant_data"
+DEFAULT_QUANT_DIR = Path.home() / "Desktop" / "quant"
 DEFAULT_CSV_PATH = DEFAULT_QUANT_DIR / "stock_company_info.csv"
 DEFAULT_YAML_PATH = DEFAULT_QUANT_DIR / "stock_config.yaml"
 DEFAULT_SAVE_PATH = DEFAULT_QUANT_DIR / "stock_data"
