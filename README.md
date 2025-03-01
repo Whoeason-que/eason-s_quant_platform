@@ -74,7 +74,7 @@ pip install streamlit plotly numpy
 
 ### 数据管道使用
 ```python
-from eason_quant_platform import main_workflow
+from step_1 import main_workflow
 
 # 示例：全流程获取金融数据
 main_workflow(
