@@ -4,6 +4,9 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import date
 from pathlib import Path
+
+DEFAULT_QUANT_DIR = Path.home() / "Desktop" / "quant"
+FOLDER_PATH = DEFAULT_QUANT_DIR / "stock_data"
 tab_0, tab_1 ,tab_2= st.tabs(["可视化","回测","数据池"])
 def generate_candle_chart():
     col_a, col_b = st.columns(2)
@@ -207,7 +210,7 @@ def clear_process_pool():
 
 main_container = st.container()
 
-FOLDER_PATH = Path(r"C:\Users\huyix\Desktop\quant\stock_data")
+
 if not FOLDER_PATH.exists():
     st.error(f"文件夹不存在：{FOLDER_PATH}")
 if "data_pool" not in st.session_state:
