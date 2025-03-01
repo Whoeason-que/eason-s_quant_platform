@@ -1,128 +1,162 @@
-eason-s_quant_platform
+# Eason Quant Platform
 
+![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-项目简介
-这是一个为我及我的团队打造的量化平台，旨在通过整合多个数据源，高效地获取和处理股票数据，为量化分析和投资决策提供支持。截至2025年2月28日，仓库将包含两个主要步骤：`step_1`和`step_2`。其中，`step_1`主要基于`tushare`和`akshare`两个第三方数据源，实现股票信息的获取和数据处理。
+面向量化研究的全流程解决方案，整合多数据源采集、自动化配置管理、高性能数据处理与交互式可视化分析。
 
+**最新进展** (2024.6) ➜ 新增Streamlit可视化仪表盘，支持多维度数据对比分析
 
-功能概述
+## 功能架构
 
-• 获取股票基本信息：通过`tushare`获取股票的基本信息（如股票代码、名称、上市日期等）并保存为 CSV 文件。
+```mermaid
+graph TD
+    A[数据采集层] --> B[配置管理层]
+    B --> C[核心处理层]
+    C --> D[应用接口层]
+    D --> E[可视化展示层]
+    
+    A -->|Tushare| A1[基础信息采集]
+    A -->|AKShare| A2[历史行情获取]
+    
+    B --> B1[YAML配置生成]
+    B --> B2[动态函数映射]
+    
+    C --> C1[多线程处理]
+    C --> C2[异常处理]
+    
+    D --> D1[数据持久化]
+    D --> D2[API服务]
+    
+    E --> E1[K线对比]
+    E --> E2[动态图表]
+    E --> E3[回测框架]
+  ```
+## 核心特性
 
-• 生成 YAML 配置文件：根据股票信息生成 YAML 配置文件，用于后续动态获取股票数据。
+### 数据采集与处理
+- 多源集成：支持Tushare/AKShare等主流数据源
+- 智能配置：自动生成可维护的YAML配置文件
+- 并发处理：基于ThreadPoolExecutor实现多线程数据获取
+- 数据规范：
+  ```python
+  {
+    "symbol": "sh600000",      # 标准证券代码
+    "start_date": "19991110",  # 上市日期
+    "adjust": "hfq",           # 复权类型
+    # 数据字段规范...
+  }
+  ```
 
-• 动态获取股票数据：基于 YAML 配置文件，使用`akshare`动态获取指定股票的历史数据。
+### 可视化分析 (Streamlit)
+- **多视图对比**：支持K线图与动态趋势图双模式
+- 交互功能：
+  - 时间粒度选择（日/周/月/半年）
+  - 多数据集叠加分析
+  - 数据标准化与平滑处理
+- 数据池管理：
+  ```bash
+  ├── 内存管理：自动计算数据集内存占用
+  ├── 动态加载：支持CSV/Excel格式
+  └── 缓存机制：基于文件修改时间的智能刷新
+  ```
 
-• 保存数据：将获取的股票数据保存为 CSV 文件，方便后续分析。
+## 快速开始
 
-• 灵活配置：支持自定义目标公司列表、数据存储路径等参数，便于用户根据需求调整。
-
-
-使用方法
-
-
-安装依赖
-在使用本平台之前，请确保已安装以下依赖库：
-
+### 环境配置
 ```bash
+# 基础依赖
 pip install pandas tushare akshare pyyaml
+
+# 可视化组件
+pip install streamlit plotly numpy
 ```
 
-
-
-获取股票基本信息
-运行以下代码获取股票基本信息并保存到指定路径：
-
+### 数据管道使用
 ```python
-from eason_quant_platform import get_stock_info
+from eason_quant_platform import main_workflow
 
-# 指定输出路径
-output_path = "path/to/your/stock_company_info.csv"
-get_stock_info(output_path)
-```
-
-
-
-生成 YAML 配置文件
-根据股票信息生成 YAML 配置文件：
-
-```python
-from eason_quant_platform import generate_yaml_config
-
-csv_path = "path/to/your/stock_company_info.csv"  # 股票 CSV信息 文件路径
-yaml_path = "path/to/your/stock_config.yaml"  # 输出 YAML 配置文件路径
-generate_yaml_config(csv_path, yaml_path)
-```
-
-
-
-动态获取股票数据
-加载 YAML 配置文件并获取指定公司的股票数据：
-
-```python
-from eason_quant_platform import fetch_stock
-
-# 指定目标公司列表
-target_companies = ['中国联通', '中国移动', '中国电信']
-# 指定 YAML 配置文件路径
-yaml_path = "path/to/your/stock_config.yaml"
-# 指定数据保存路径
-save_path = "path/to/your/stock_data"
-
-fetch_stock(target_companies=target_companies, yaml_path=yaml_path, save_path=save_path)
-```
-
-
-
-批量处理
-使用`fetch_stock`函数可以一键完成从获取股票信息到保存数据的全流程：
-
-```python
-fetch_stock(
-    target_companies=['平安银行', '招商银行', '万科A', '中国平安', '中国人寿', '中国石油', '中国联通', '中国移动', '中国电信'],
-    csv_path="path/to/your/stock_company_info.csv",
-    yaml_path="path/to/your/stock_config.yaml",
-    save_path="path/to/your/stock_data",
-    fetch_data=True,  # 是否重新获取股票信息
-    regeneate_config=True  # 是否重新生成 YAML 配置文件
+# 示例：全流程获取金融数据
+main_workflow(
+    target_companies=['贵州茅台', '宁德时代'],
+    refresh_data=True,
+    regenerate_config=True,
+    max_workers=12
 )
 ```
 
+### 启动可视化仪表盘
+```bash
+streamlit run visualization_app.py --server.port 8501
+```
+![可视化界面示例](https://via.placeholder.com/800x400?text=K线对比+动态趋势分析)
 
+## 高级功能
 
-注意事项
+### 配置自定义
+通过修改`stock_config.yaml`实现：
+```yaml
+# 数据结构示例
+中国平安:
+  function: stock_zh_a_daily    # AKShare函数名
+  params:
+    symbol: sh601318           # 标准代码格式
+    start_date: "20070301"     # 数据起始日期
+    adjust: hfq                # 后复权模式
+```
 
-• 数据源限制：
+### 性能调优参数
+| 参数            | 类型   | 默认值 | 说明                     |
+|-----------------|--------|--------|--------------------------|
+| `max_workers`   | int    | 8      | 最大并发线程数           |
+| `fetch_data`    | bool   | False  | 强制刷新基础数据         |
+| `smooth_window` | int    | 5      | 数据平滑窗口大小         |
 
-• `tushare`需要注册并获取 Token，具体操作请参考[tushare 官方文档]()。
+## 开发指南
 
-• `akshare`的数据获取可能受到网络限制，请确保网络连接正常。
+### 扩展数据源
+1. 在`stock_config.yaml`中添加新配置项
+2. 实现对应的数据解析函数
+3. 更新`convert_code()`中的交易所映射表
 
-• 安全性：
+### 调试模式
+```python
+# 启用详细日志
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s] %(levelname)-8s %(message)s",
+    handlers=[logging.FileHandler('debug.log'), logging.StreamHandler()]
+)
+```
 
-• 在使用`eval`动态执行函数时，请确保 YAML 配置文件来源可信，避免潜在的安全风险。
+## 最佳实践
 
-• 路径配置：
+1. **增量更新**：通过设置`refresh_data=False`复用已有数据
+2. **内存优化**：使用`DEFAULT_QUANT_DIR`集中管理数据路径
+3. **安全建议**：将Token等敏感信息移出版本控制
+   ```python
+   # 从环境变量读取凭证
+   import os
+   ts.set_token(os.getenv('TUSHARE_TOKEN'))
+   ```
 
-• 请根据实际情况调整文件路径，确保路径有效且具有读写权限。
+## 路线图
 
-• 性能优化：
+| 版本    | 里程碑                          | 状态    |
+|---------|---------------------------------|---------|
+| v1.0    | 基础数据管道搭建                | ✓ 已完成|
+| v1.5    | Streamlit可视化模块             | ✓ 已完成|
+| v2.0    | 回测框架与策略库                | 开发中  |
+| v2.5    | 分布式数据抓取                  | 规划中  |
 
-• 如果需要处理大量股票数据，建议分批处理以避免内存占用过高。
+## 贡献与支持
 
-• 版本兼容性：
+欢迎通过以下方式参与项目：
+- 提交Pull Request完善文档
+- 在Issues报告数据源异常
+- 贡献量化策略案例
 
-• 本项目基于 Python 3.8+开发，建议使用 Python 3.8 或更高版本运行。
+**特别提示**：使用eval动态加载函数时，请严格验证YAML文件来源，建议在生产环境中禁用此特性。
 
-
-未来计划
-
-• step_2：进一步扩展功能，支持更多数据源和更复杂的数据处理逻辑。
-
-• 优化性能：引入多线程或多进程处理，提升数据获取和处理效率。
-
-• 增加可视化功能：支持数据可视化，方便用户快速分析和决策。
-
-
-贡献与反馈
-欢迎任何对本项目的贡献和反馈！如果你有任何问题或建议，请随时通过[GitHub Issues]()提出。
+[查看完整贡献指南](CONTRIBUTING.md) | [许可证信息](LICENSE)
+```
