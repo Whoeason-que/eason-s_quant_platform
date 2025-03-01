@@ -8,22 +8,21 @@ from pathlib import Path
 from typing import Optional, List, Dict, Union
 import logging
 
-# 配置日志记录
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(Path.home() / "quant_data" / "stock_downloader.log"),
-        logging.StreamHandler()
-    ]
-)
-
 # 基础路径配置（跨平台兼容）
 DEFAULT_QUANT_DIR = Path.home() / "Desktop" / "quant"
 DEFAULT_CSV_PATH = DEFAULT_QUANT_DIR / "stock_company_info.csv"
 DEFAULT_YAML_PATH = DEFAULT_QUANT_DIR / "stock_config.yaml"
 DEFAULT_SAVE_PATH = DEFAULT_QUANT_DIR / "stock_data"
 
+# 配置日志记录
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(DEFAULT_QUANT_DIR / "stock_downloader.log"),
+        logging.StreamHandler()
+    ]
+)
 def get_stock_info(output_path: Union[str, Path] = DEFAULT_CSV_PATH) -> None:
     """获取股票基本信息并保存到CSV"""
     output_path = Path(output_path)
