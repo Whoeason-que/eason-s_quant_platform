@@ -1,0 +1,8 @@
+25/3/1 updated step_1:
+1.change the form of config
+2.adapt to different platforms
+3.the akshare data source,changed from single thread to multithread
+中文:
+1.改变了获取配置的格式
+2.适应不同的平台
+3.将使用akshare获取数据时的单线程改为多线程
