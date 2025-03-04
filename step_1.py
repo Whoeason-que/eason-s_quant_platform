@@ -5,8 +5,12 @@ from datetime import datetime
 import tushare as ts
 import akshare as ak
 from pathlib import Path
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict,Literal, Union
 import logging
+import signal
+import sys
+import time
+import random
 
 # 基础路径配置（跨平台兼容）
 DEFAULT_QUANT_DIR = Path.home() / "Desktop" / "quant"
@@ -23,13 +27,19 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# 定义信号处理函数
+def signal_handler(sig, frame):
+    logging.info('程序中断，正在安全退出...')
+    sys.exit(0)
+
 def get_stock_info(output_path: Union[str, Path] = DEFAULT_CSV_PATH) -> None:
     """获取股票基本信息并保存到CSV"""
     output_path = Path(output_path)
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        pro = ts.pro_api()
+        pro = ts.pro_api()# 初始化tushare pro接口,这里需要先在tushare注册账号
         df = pro.stock_basic(
             exchange='', 
             list_status='L', 
@@ -119,15 +129,25 @@ def load_config(yaml_path: Union[str, Path] = DEFAULT_YAML_PATH) -> Dict:
 
 def fetch_stock_data(
     config: Dict,
+    delay_min: float = 1,
+    delay_max: float = 3,
     target_companies: Optional[List[str]] = None,
-    max_workers: int = 8
+    max_workers: int = 8,
+    output_dir: Union[str, Path] = DEFAULT_SAVE_PATH
 ) -> Dict[str, pd.DataFrame]:
-    """多线程获取股票数据"""
+    """多线程获取股票数据并立即保存到CSV"""
     results = {}
     target_companies = target_companies or list(config.keys())
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    def _fetch_data(company: str) -> Optional[pd.DataFrame]:
+    def _fetch_data(company: str, delay_min: float = 1, delay_max: float = 3) -> Optional[pd.DataFrame]:
         try:
+            # 添加随机延迟
+            delay = random.uniform(delay_min, delay_max)  # 1到3秒的随机延迟
+            logging.info(f"等待 {delay:.2f} 秒以防止频繁访问...")
+            time.sleep(delay)
+            
             if company not in config:
                 logging.warning(f"跳过未配置公司: {company}")
                 return None
@@ -147,6 +167,12 @@ def fetch_stock_data(
                 logging.warning(f"空数据: {company}")
                 return None
                 
+            # 保存数据到CSV
+            safe_name = "".join(c if c.isalnum() else "_" for c in company)
+            file_path = output_dir / f"{safe_name}.csv"
+            data.to_csv(file_path, index=False)
+            logging.info(f"已保存 {company} 数据到 {file_path}")
+            
             return data
         except Exception as e:
             logging.error(f"获取 {company} 数据失败: {str(e)}")
@@ -170,43 +196,38 @@ def fetch_stock_data(
 
     return results
 
-def save_to_csv(
-    data_dict: Dict[str, pd.DataFrame],
-    output_dir: Union[str, Path] = DEFAULT_SAVE_PATH
-) -> None:
-    """保存数据到CSV文件"""
-    output_dir = Path(output_dir)
-    try:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        for company, data in data_dict.items():
-            # 清理文件名中的非法字符
-            safe_name = "".join(c if c.isalnum() else "_" for c in company)
-            file_path = output_dir / f"{safe_name}.csv"
-            
-            data.to_csv(file_path, index=False)
-            logging.info(f"已保存 {company} 数据到 {file_path}")
-    except Exception as e:
-        logging.error(f"保存数据失败: {str(e)}")
-        raise
-
 def main_workflow(
     target_companies: Optional[List[str]] = None,
-    refresh_data: bool = False,
+    refresh_fundamental_data: bool = False,
     regenerate_config: bool = False,
-    max_workers: int = 8
+    max_workers: int = 8,
+    stock_sector: Optional[List[Literal['hs300', 'cyb50', 'industry:银行', 'industry:科技']]] = None
 ) -> None:
-    """主工作流程"""
+    """主工作流程
+    stock_sector: 支持多种筛选模式 
+        hs300 - 沪深300成分股
+        cyb50 - 创业板50
+        industry:XXX - 按行业筛选
+    """
     try:
+        # 注册信号处理函数
+        signal.signal(signal.SIGINT, signal_handler)
+        
         # 初始化默认参数
+        stock_sector = stock_sector or []
         target_companies = target_companies or ["中国联通", "中国移动", "中国电信"]
         
+        # 板块筛选逻辑
+        if stock_sector:
+            sector_data = pd.read_csv(DEFAULT_CSV_PATH)
+            selected_codes = []
+            
         # 更新股票列表
-        if refresh_data:
+        if refresh_fundamental_data:
             get_stock_info()
             
         # 生成配置文件
-        if regenerate_config or refresh_data:
+        if regenerate_config or refresh_fundamental_data:
             generate_yaml_config()
             
         # 加载配置
@@ -218,25 +239,21 @@ def main_workflow(
             target_companies=target_companies,
             max_workers=max_workers
         )
-        
-        # 保存数据
-        if stock_data:
-            save_to_csv(stock_data)
-            logging.info(f"成功保存 {len(stock_data)} 家公司数据")
-        else:
-            logging.warning("未获取到有效数据")
     except Exception as e:
         logging.error(f"主流程执行失败: {str(e)}")
         raise
 
 if __name__ == "__main__":
+    # 注册信号处理函数
+    signal.signal(signal.SIGINT, signal_handler)
+    
     # 初始化目录
     DEFAULT_QUANT_DIR.mkdir(parents=True, exist_ok=True)
     
     # 示例调用
     main_workflow(
-        target_companies=["平安银行", "万科A", "中国平安"],
-        refresh_data=True,
-        regenerate_config=True,
-        max_workers=12
+        target_companies=['汉威科技'],
+        refresh_fundamental_data=False,
+        regenerate_config=False,
+        max_workers=12,
     )
