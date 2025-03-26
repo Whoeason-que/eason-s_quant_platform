@@ -11,3 +11,7 @@
 25/3/4 updated step_1
 1.优化了代码获取及存储逻辑，能一边获取一边存储，不会因为获取中断而数据丢失。
 2.调整了获取延迟，防止ip被封
+
+25/3/26 uploaded step_2_beta and step_3
+1.注意，step_2_beta存在不稳定
+2.step_2_beta要配合step_3使用
